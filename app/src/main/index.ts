@@ -74,7 +74,7 @@ function createWindow(): BrowserWindow {
         title: 'Nenene',
         backgroundColor: '#faf9f6',
         titleBarStyle: 'hiddenInset',
-        ...(hiddenWindow ? { show: false } : {}),
+        show: false,
         webPreferences: {
             preload: join(appPath(), 'out', 'preload', 'index.cjs'),
             contextIsolation: true,
@@ -106,6 +106,11 @@ function createWindow(): BrowserWindow {
 
     w.on('closed', () => {
         win = null;
+    });
+    // 시험·스크린샷 모드에서는 창을 표시하지 않는다(capturePage 는 숨은 창에서도 된다).
+    // 일반 실행은 기존처럼 창을 띄운다.
+    w.once('ready-to-show', () => {
+        if (!hiddenWindow && !shotPath && !isSelftest && !isE2e) w.show();
     });
     return w;
 }
