@@ -1,0 +1,48 @@
+appId: run.legalpaper.studio
+productName: Nenene
+copyright: Copyright © 2026
+directories:
+  output: release
+  buildResources: build
+# Electron 은 이미 node_modules 에 있다. 네트워크 다운로드 없이 그 사본을 쓴다.
+electronDist: node_modules/electron/dist
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+  # pdf.js 는 Node 용 legacy 빌드와 글꼴 표(cmaps·standard_fonts)만 쓴다.
+  - '!node_modules/pdfjs-dist/{build,web,types,image_decoders}/**'
+  # pdf.js 의 선택 의존(@napi-rs/canvas, 26MB)은 렌더링용이다. 글만 뽑으므로 넣지 않는다(없어도 같은 글이 나온다).
+  - '!node_modules/@napi-rs/**'
+# PDF 글 뽑기는 자식 프로세스(Electron 을 node 로)가 돌린다 — asar 안의 ESM 을 못 읽을 수 있으니 밖에 푼다.
+asarUnpack:
+  - out/main/pdf-extract.mjs
+  - node_modules/pdfjs-dist/**
+# 법령·판례 코퍼스를 앱에 넣는다. 이게 없으면 패키징된 앱은 **모든 인용을 검증할 수 없다**.
+# 12MB + 5MB 라 앱 크기에 비해 싸고, 넣지 않으면 앱이 반쪽이 된다.
+# 공개 자료만 넣는다 — 목록·기준 커밋·법령/판례 원문 캐시·클론. data/cache/sources(개발자가 받은 논문 PDF·웹 자료·
+# 필자 답변 기록 provided.json)는 넣지 않는다: 남의 컴퓨터에서 그 사람의 "지난 답"으로 읽히고, KCI 원문은 재배포 대상이 아니다.
+extraResources:
+  - from: ../data/cache
+    to: corpus/data/cache
+    filter:
+      - law-index.txt
+      - precedent-index.txt
+      - legalize-meta.json
+      - docs/**
+  - from: ../.legalize
+    to: corpus/.legalize
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dir
+  # 로컬 실행용 서명. 배포하려면 개발자 ID 로 바꾼다.
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+win:
+  target:
+    - target: dir
+linux:
+  target:
+    - target: dir

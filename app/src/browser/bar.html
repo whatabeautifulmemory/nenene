@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>원문 찾기</title>
+<style>
+:root{--bg:#f7f6f2;--panel:#fff;--ink:#1c1b18;--muted:#6f6b63;--line:#e4e1d9;--hover:#f1efe9;--accent:#1f6f5f;--accent-soft:#e3efea;--accent-ink:#155447;--warn:#9a6514}
+:root.dark{--bg:#18181b;--panel:#1f1f23;--ink:#e8e6e1;--muted:#a19d95;--line:#34343a;--hover:#2a2a30;--accent:#6cc0a8;--accent-soft:#21332e;--accent-ink:#9fd8c6;--warn:#e0b060}
+@media (prefers-color-scheme: dark){:root:not(.light){--bg:#18181b;--panel:#1f1f23;--ink:#e8e6e1;--muted:#a19d95;--line:#34343a;--hover:#2a2a30;--accent:#6cc0a8;--accent-soft:#21332e;--accent-ink:#9fd8c6;--warn:#e0b060}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.4 -apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;overflow:hidden}
+.row{display:flex;align-items:center;gap:6px;padding:0 10px}
+.r0{height:34px;padding:0 6px;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;display:none}
+.r0::-webkit-scrollbar{height:3px}
+.r0::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+body.tabs .r0{display:flex}
+.tab{flex:0 1 200px;min-width:90px;height:26px;padding:0 4px 0 9px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);gap:6px;justify-content:flex-start;font-size:12.5px}
+.tab:hover:not(:disabled){background:var(--hover)}
+.tab.on{background:var(--panel);border-color:var(--line);color:var(--ink);font-weight:600}
+.tab .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.tab .x{flex:none;width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;color:var(--muted)}
+.tab .x:hover{background:var(--line);color:var(--ink)}
+.tab .spin{width:9px;height:9px}
+.r1{height:46px;border-bottom:1px solid var(--line)}
+.r2{height:38px;font-size:12.5px;color:var(--muted);gap:10px;white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line)}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+button:hover:not(:disabled){background:var(--hover)}
+button:disabled{opacity:.4;cursor:default}
+button.nav{width:30px;height:30px;padding:0;justify-content:center;font-size:15px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+:root.dark button.primary{color:#10201b}
+@media (prefers-color-scheme: dark){:root:not(.light) button.primary{color:#10201b}}
+button.primary:hover:not(:disabled){filter:brightness(1.07);background:var(--accent)}
+input{flex:1;min-width:120px;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 10px;outline:none}
+input:focus{border-color:var(--accent)}
+.label{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:42%}
+.msg{overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.msg.warn{color:var(--warn)}
+.msg.ok{color:var(--accent-ink)}
+.chips{display:flex;gap:6px;overflow:hidden;flex:none;max-width:40%}
+.chip{background:var(--accent-soft);color:var(--accent-ink);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.spin{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);border-right-color:transparent;animation:s .8s linear infinite;flex:none;visibility:hidden}
+.spin.on{visibility:visible}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="row r0" id="tabs" role="tablist" aria-label="탭"></div>
+<div class="row r1">
+  <button class="nav" id="back" title="뒤로">‹</button>
+  <button class="nav" id="fwd" title="앞으로">›</button>
+  <button class="nav" id="reload" title="새로고침">↻</button>
+  <span class="spin" id="spin"></span>
+  <input id="url" spellcheck="false" placeholder="주소 또는 검색어(학술검색) — Enter">
+  <button class="primary" id="add" title="PDF 를 띄웠으면 그 파일을, 웹 페이지면 보이는 글을 이 질문의 원문으로 넣습니다">이 페이지 넣기</button>
+  <button id="close" title="닫기 — 넣은 것은 그대로 남습니다">닫기</button>
+</div>
+<div class="row r2">
+  <span class="label" id="label"></span>
+  <span class="msg" id="msg">원문을 띄우세요. 내려받는 파일은 자동으로 이 질문에 붙습니다.</span>
+  <span class="chips" id="chips"></span>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const bar = window.srcbar;
+$('back').onclick = () => bar.back();
+$('fwd').onclick = () => bar.forward();
+$('reload').onclick = () => bar.reload();
+$('add').onclick = () => bar.addPage();
+$('close').onclick = () => bar.close();
+let editing = false;
+let lastUrl = '';
+$('url').addEventListener('focus', () => { editing = true; $('url').select(); });
+$('url').addEventListener('blur', () => { editing = false; $('url').value = lastUrl; });
+$('url').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) { lastUrl = $('url').value; bar.nav($('url').value); $('url').blur(); }
+  // Esc 는 고치던 글을 버리고 지금 탭의 주소로 되돌린다.
+  if (e.key === 'Escape') { $('url').value = lastUrl; $('url').blur(); }
+});
+// ⌘L — 이미 주소창에 있어도 전부 고른다(focus 가 다시 일어나지 않으므로 직접 고른다).
+bar.onFocusUrl(() => { $('url').focus(); $('url').select(); });
+const DEFAULT_MSG = '원문을 띄우세요. 내려받는 파일은 자동으로 이 질문에 붙습니다. 웹 페이지면 「이 페이지 넣기」.';
+const hostOf = (u) => { try { return new URL(u).host; } catch { return ''; } };
+// 탭 줄 — 둘 이상일 때만 보인다(창 쪽이 도구막대 높이를 늘린다). 누르면 그 탭, ×·가운데 누르기는 닫기.
+// 단추는 탭마다 한 번 만들고 그 자리에서 고친다 — 상태가 1초에 몇 번씩 와도 누르는 중인 단추가 바뀌지 않게(예전에는 눌러도 씹혔다).
+const tabEls = new Map();
+let shownActive = null;
+function tabEl(id) {
+  let b = tabEls.get(id);
+  if (b) return b;
+  b = document.createElement('button');
+  b.className = 'tab';
+  b.setAttribute('role', 'tab');
+  const sp = document.createElement('span');
+  sp.className = 'spin';
+  const tx = document.createElement('span');
+  tx.className = 't';
+  const x = document.createElement('span');
+  x.className = 'x';
+  x.textContent = '×';
+  x.title = '탭 닫기';
+  x.onclick = (e) => { e.stopPropagation(); bar.closeTab(id); };
+  b.append(sp, tx, x);
+  b.onclick = () => bar.selectTab(id);
+  b.onauxclick = (e) => { if (e.button === 1) { e.preventDefault(); bar.closeTab(id); } };
+  tabEls.set(id, b);
+  return b;
+}
+function renderTabs(list) {
+  const box = $('tabs');
+  document.body.classList.toggle('tabs', list.length > 1);
+  const keep = new Set(list.map((t) => t.id));
+  for (const [id, b] of tabEls) if (!keep.has(id)) { b.remove(); tabEls.delete(id); }
+  let prev = null;
+  for (const t of list) {
+    const b = tabEl(t.id);
+    const name = t.title || hostOf(t.url) || '새 탭';
+    b.classList.toggle('on', !!t.active);
+    b.setAttribute('aria-selected', t.active ? 'true' : 'false');
+    b.title = name + (t.url && t.url !== 'about:blank' ? '\n' + t.url : '');
+    b.querySelector('.spin').classList.toggle('on', !!t.loading);
+    b.querySelector('.spin').style.display = t.loading ? '' : 'none';
+    const tx = b.querySelector('.t');
+    if (tx.textContent !== name) tx.textContent = name;
+    // 순서가 맞으면 옮기지 않는다(옮기면 누르는 중인 단추가 빠진다).
+    const want = prev ? prev.nextSibling : box.firstChild;
+    if (want !== b) box.insertBefore(b, want);
+    prev = b;
+  }
+  // 지금 탭이 바뀌었을 때만 보이게 끌어온다 — 사람이 옆으로 밀어 둔 탭 줄을 매번 되돌리지 않게.
+  const act = list.find((t) => t.active);
+  if (act && act.id !== shownActive && list.length > 1) tabEls.get(act.id).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  shownActive = act ? act.id : null;
+}
+// 세로 휠로도 탭 줄을 옆으로 민다(가로 스크롤 장치가 없는 마우스).
+$('tabs').addEventListener('wheel', (e) => {
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { $('tabs').scrollLeft += e.deltaY; e.preventDefault(); }
+}, { passive: false });
+bar.onState((s) => {
+  document.documentElement.classList.toggle('dark', !!s.dark);
+  document.documentElement.classList.toggle('light', !s.dark);
+  renderTabs(s.tabs || []);
+  lastUrl = s.url || '';
+  if (!editing) $('url').value = lastUrl;
+  $('back').disabled = !s.canBack;
+  $('fwd').disabled = !s.canForward;
+  $('spin').classList.toggle('on', !!s.loading);
+  $('label').textContent = s.label ? '질문: ' + s.label : '';
+  $('label').title = s.label || '';
+  const m = s.message || DEFAULT_MSG;
+  $('msg').textContent = m;
+  $('msg').title = (s.dir ? '저장 위치: ' + s.dir + '\n' : '') + m;
+  // 색은 글자가 아니라 창 쪽이 정한 등급으로(제목에 「않」이 든 성공이 경고색이 되던 것을 고침).
+  $('msg').classList.toggle('warn', !!s.message && s.level === 'warn');
+  $('msg').classList.toggle('ok', !!s.message && s.level === 'ok');
+  const chips = $('chips');
+  chips.textContent = '';
+  for (const a of s.added || []) {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.textContent = '✓ ' + a.name;
+    c.title = a.path;
+    chips.appendChild(c);
+  }
+});
+bar.ready();
+</script>
+</body>
+</html>

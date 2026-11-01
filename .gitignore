@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+app/node_modules/
+
+# build outputs
+out/
+app/out/
+release/
+app/release/
+dist/
+app/dist/
+
+# local data and experiment artifacts
+.legalize/
+/data/
+/testset/
+/docs/
+/papers/
+/test/
+
+# secrets
+.env
+.env.local
+
+# os / logs
+.DS_Store
+*.log
